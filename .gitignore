@@ -8,3 +8,4 @@ datacap/
 # *.log  # 忽略所有 .log 后缀的文件
 # *.pyc  # 忽略 Python 编译文件（__pycache__ 通常也会自动忽略，但可显式添加）
 # __pycache__/
+core
