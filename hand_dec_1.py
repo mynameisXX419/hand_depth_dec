@@ -247,14 +247,19 @@ with mp_hands.Hands(
             depth_mm_corr = apply_rc_dynamic(depth_mm_raw, depth_mm_kf, rc_params, beta, gamma_boost)
 
             # ✅ 新增部分：深按动态补偿（3.5cm以上线性放大，封顶6cm）
-            if depth_mm_corr > 35.0:
-                # 将 35~55mm 线性映射到 40~60mm
+            # ✅ 新增部分：深按动态补偿（30~55mm区间立方骤增补偿，封顶60mm）
+            if depth_mm_corr > 30.0:
                 if depth_mm_corr < 55.0:
-                    scale = (depth_mm_corr - 35.0) / 20.0  # 0~1
-                    depth_mm_corr = depth_mm_corr + 5.0 * scale
+                    # 使用立方函数增强补偿力度（越深补得越多）
+                    # 补偿 = 3 + ((depth-30)/25)^3 * 3  -> 从 +3mm 到 +6mm 非线性增长
+                    x = (depth_mm_corr - 30.0) / 25.0  # 0~1
+                    add_mm = 3.0 + (x ** 3) * 3.0
+                    depth_mm_corr = depth_mm_corr + add_mm
                 else:
-                    # 超过55mm上限封顶不超过60mm
-                    depth_mm_corr = min(depth_mm_corr + 5.0, 60.0)
+                    # 超过55mm上限封顶，不超过60mm
+                    depth_mm_corr = min(depth_mm_corr + 6.0, 60.0)
+
+
 
             # 显示
             cv2.putText(frame, f"Depth={depth_mm_corr:.2f}mm", (20,40),
