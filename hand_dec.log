@@ -1,0 +1,14 @@
+Invalid MIT-MAGIC-COOKIE-1 key
+Invalid MIT-MAGIC-COOKIE-1 key
+Invalid MIT-MAGIC-COOKIE-1 key
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1762252022.709718   77291 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1762252022.724406   77315 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+Invalid MIT-MAGIC-COOKIE-1 key
+qt.qpa.xcb: could not connect to display :0
+qt.qpa.plugin: Could not load the Qt platform plugin "xcb" in "/home/ljy/anaconda3/envs/mp_hands/lib/python3.9/site-packages/cv2/qt/plugins" even though it was found.
+This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+
+Available platform plugins are: xcb.
+
