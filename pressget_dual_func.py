@@ -1,14 +1,14 @@
 # ============================================
-# pressget_dual_v6_localdisplay_globalcount.py
-# —— 实时压力检测（终端显示本次编号 + 文件保存全局编号 + 持久化计数）
+# pressget_dual_v7_detector_merge10ms.py
+# —— 实时压力检测（融合版：10ms峰值合并 + 实时监听 + 全局计数）
 # ============================================
 
 import pandas as pd
 import numpy as np
 import os, time, json
+from scipy.signal import find_peaks
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from scipy.signal import find_peaks
 
 # ---------- 参数配置 ----------
 FILE_PATH = "/home/ljy/project/hand_dec/ljy/ljy_1/pressure_log.csv"
@@ -18,14 +18,15 @@ COUNT_FILE = "/home/ljy/project/hand_dec/datacap/1/press_count.json"
 
 STATIC_STD_THRESH = 1000.0        # 静止段判断阈值
 VALID_PRESS_THRESH = 2000         # ✅ 有效按压正峰阈值
-MIN_DISTANCE = 1                 # 峰值间最小间距（样本点数）
+MIN_DISTANCE = 1                  # 峰值间最小间距（样本点数）
 PROMINENCE = 20                   # 峰值显著性要求
+MERGE_WINDOW_MS = 10              # ✅ 10ms 内只保留最大峰值
 DELAY_AFTER_WRITE = 0.1           # C++ 写入延迟补偿
 
 # ---------- 全局变量 ----------
-last_peak_time = 0                # 上一次检测到的峰时间(ms)
-total_valid_count = 0             # 全局累计次数（持久化）
-session_count = 0                 # 本次运行内编号（从1开始）
+last_peak_time = 0
+total_valid_count = 0
+session_count = 0
 
 
 # ---------- 辅助函数 ----------
@@ -51,16 +52,16 @@ def save_press_count():
         json.dump({"total_valid_count": total_valid_count}, f)
 
 
-# ---------- 核心检测逻辑 ----------
-def detect_global_valid_peaks(FILE_PATH: str):
-    """检测全局范围的有效按压（对比历史最后一次峰值时间）"""
+# ---------- 核心检测函数 ----------
+def detect_global_valid_peaks(file_path: str):
+    """融合版核心逻辑：10ms内峰值合并 + 新峰检测 + 文件保存"""
     global last_peak_time, total_valid_count, session_count
 
-    if not os.path.exists(FILE_PATH):
+    if not os.path.exists(file_path):
         return
 
     try:
-        df = pd.read_csv(FILE_PATH, usecols=["time_ms", "press_sum_norm"])
+        df = pd.read_csv(file_path, usecols=["time_ms", "press_sum_norm"])
     except Exception as e:
         print(f"[ERROR] 文件读取失败: {e}")
         return
@@ -75,28 +76,48 @@ def detect_global_valid_peaks(FILE_PATH: str):
     press   = df["press_sum_norm"].to_numpy(dtype=float)
 
     # ---- 静止段判断 ----
-    std_val = np.std(press[-50:])  # 用末尾50个点判断静止
+    std_val = np.std(press[-50:])
     if std_val < STATIC_STD_THRESH:
         print(f"🟢 静止段 (STD={std_val:.1f})")
         return
 
-    # ---- 峰值检测 ----
+    # ---- 初步峰值检测 ----
     pos_locs, _ = find_peaks(press, prominence=PROMINENCE, distance=MIN_DISTANCE)
     if len(pos_locs) == 0:
         return
 
     peaks_time = time_ms[pos_locs]
-    peaks_val = press[pos_locs]
+    peaks_val  = press[pos_locs]
+
+    # ---- 合并10ms内的近邻峰，只保留最大值 ----
+    merged_times, merged_vals = [], []
+    if len(peaks_time) > 0:
+        group_start = 0
+        for i in range(1, len(peaks_time)):
+            if peaks_time[i] - peaks_time[i - 1] <= MERGE_WINDOW_MS:
+                continue
+            else:
+                group_slice = slice(group_start, i)
+                max_idx = np.argmax(peaks_val[group_slice]) + group_start
+                merged_times.append(peaks_time[max_idx])
+                merged_vals.append(peaks_val[max_idx])
+                group_start = i
+        group_slice = slice(group_start, len(peaks_time))
+        max_idx = np.argmax(peaks_val[group_slice]) + group_start
+        merged_times.append(peaks_time[max_idx])
+        merged_vals.append(peaks_val[max_idx])
+
+    peaks_time = np.array(merged_times)
+    peaks_val  = np.array(merged_vals)
 
     # ---- 筛选有效按压 ----
     valid_mask = peaks_val > VALID_PRESS_THRESH
     peaks_time = peaks_time[valid_mask]
     peaks_val  = peaks_val[valid_mask]
-
     if len(peaks_time) == 0:
         return
 
-    # ---- 仅保留新出现的峰值（避免重复记录）----
+    # ---- 新峰值过滤 ----
     new_idx = peaks_time > last_peak_time
     if not np.any(new_idx):
         return
@@ -104,7 +125,7 @@ def detect_global_valid_peaks(FILE_PATH: str):
     new_times = peaks_time[new_idx]
     new_vals  = peaks_val[new_idx]
 
-    # ---- 生成全局编号并保存 ----
+    # ---- 写入文件 + 更新编号 ----
     press_ids_global = [total_valid_count + i + 1 for i in range(len(new_times))]
     df_valid = pd.DataFrame({
         "press_id_global": press_ids_global,
@@ -112,26 +133,21 @@ def detect_global_valid_peaks(FILE_PATH: str):
         "press_pos": new_vals
     })
 
-    # 写入文件
     df_valid.to_csv(SAVE_FILE, mode='a', header=not os.path.exists(SAVE_FILE), index=False)
 
-    # 更新全局与会话计数
     total_valid_count += len(df_valid)
     session_start_id = session_count + 1
     session_count += len(df_valid)
     last_peak_time = new_times[-1]
     save_press_count()
 
-    # ---- 打印结果（使用本次会话编号）----
     for i, row in enumerate(df_valid.itertuples(), start=session_start_id):
         print(f"✅ 第 {i} 次有效按压: {row.press_pos:.0f} @ {row.t_pos_ms:.0f} ms")
 
 
 # ---------- 文件监听 ----------
 class PressureWatcher(FileSystemEventHandler):
-    def __init__(self):
-        super().__init__()
-
+    """监听 pressure_log.csv 文件变化并触发检测"""
     def on_modified(self, event):
         if not event.src_path.endswith("pressure_log.csv"):
             return

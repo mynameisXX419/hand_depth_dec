@@ -1,6 +1,6 @@
 # ============================================
 # listener_fusion_predict.py
-# —— 视觉丢失自动用压力预测深度（含RMSE颜色与a,b平滑）
+# —— 视觉丢失自动用压力预测深度（同时打印RMSE与MAE, 滑动窗口20）
 # ============================================
 
 import socket, os, json, time
@@ -31,7 +31,7 @@ COLORS = {
 }
 
 # ---------- 缓存与参数 ----------
-N_WINDOW = 10
+N_WINDOW = 20  # ✅ 滑动窗口改为20
 depth_queue = deque(maxlen=N_WINDOW)
 press_queue = deque(maxlen=N_WINDOW)
 a_hist, b_hist = deque(maxlen=5), deque(maxlen=5)  # 平滑系数缓存
@@ -39,10 +39,11 @@ a_hist, b_hist = deque(maxlen=5), deque(maxlen=5)  # 平滑系数缓存
 occlusion_lost_count = 0
 last_static_time = 0.0
 STATIC_INTERVAL = 1.0
-fit_params = None  # (a,b,rmse)
+fit_params = None  # (a,b,rmse,mae)
 
 # ---------- 拟合函数 ----------
 def fit_linear(press, depth):
+    """执行最小二乘法拟合，返回(a, b, RMSE, MAE)"""
     if len(press) < 2:
         return None
     x = np.array(press)
@@ -51,7 +52,8 @@ def fit_linear(press, depth):
     b, a = np.linalg.lstsq(A, y, rcond=None)[0]
     y_pred = a + b * x
     rmse = np.sqrt(np.mean((y - y_pred) ** 2))
-    return a, b, rmse
+    mae = np.mean(np.abs(y - y_pred))
+    return a, b, rmse, mae
 
 
 # ---------- 主循环 ----------
@@ -84,13 +86,13 @@ while True:
         if len(press_queue) >= 3:
             res = fit_linear(press_queue, depth_queue)
             if res:
-                a, b, rmse = res
+                a, b, rmse, mae = res
                 # 平滑参数更新
                 a_hist.append(a)
                 b_hist.append(b)
                 a_smooth = np.mean(a_hist)
                 b_smooth = np.mean(b_hist)
-                fit_params = (a_smooth, b_smooth, rmse)
+                fit_params = (a_smooth, b_smooth, rmse, mae)
 
                 # RMSE颜色分级
                 if rmse < 0.5:
@@ -102,7 +104,9 @@ while True:
 
                 print(
                     f"{COLORS['fit']}[FIT]{COLORS['reset']} depth = {a_smooth:.3f} + {b_smooth:.6f} × pressure | "
-                    f"RMSE={c_rmse}{rmse:.3f} mm{COLORS['reset']} (n={len(press_queue)})\n"
+                    f"RMSE={c_rmse}{rmse:.3f} mm{COLORS['reset']} | "
+                    f"MAE={c_rmse}{mae:.3f} mm{COLORS['reset']} "
+                    f"(n={len(press_queue)})\n"
                 )
 
     # ============= 连续遮挡检测 =============
@@ -116,11 +120,12 @@ while True:
             if not press_results:
                 continue  # 无压力峰值则跳过
 
-            a, b, rmse = fit_params
+            a, b, rmse, mae = fit_params
             for local_idx, global_idx, press_val, t_ms in press_results:
                 pred_depth = a + b * press_val
                 print(
-                    f"{COLORS['predict']}[PREDICT] 压力#{local_idx}: {press_val:.0f} → 预测深度={pred_depth:.2f} mm (遮挡){COLORS['reset']}"
+                    f"{COLORS['predict']}[PREDICT] 压力#{local_idx}: {press_val:.0f} → 预测深度={pred_depth:.2f} mm "
+                    f"(遮挡, RMSE={rmse:.2f}, MAE={mae:.2f}){COLORS['reset']}"
                 )
                 # 保持拟合序列连续
                 press_queue.append(press_val)

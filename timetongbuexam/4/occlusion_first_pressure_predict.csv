@@ -1,0 +1,2 @@
+occl_seq_id,cc_index_est,pred_depth_mm,vision_state,reason,timestamp
+1,48,64.9959345709714,INVALID,invalid_depth,1764592142.084245

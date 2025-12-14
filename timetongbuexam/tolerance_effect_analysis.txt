@@ -1,0 +1,9 @@
+=== Data-driven timing tolerance summary ===
+Number of sessions: 10
+Recommended tolerance: mean = 201.7 ms, min = 109.0 ms, max = 249.1 ms
+
+=== Effect of tolerance on Δt variability ===
+Average STD of Δt before tolerance: 105.8 ms
+Average STD of Δt within tolerance: 98.0 ms
+Average STD reduction: 7.8 ms (7.4 %)
+Average proportion of pairs kept within tolerance: 95.9 %

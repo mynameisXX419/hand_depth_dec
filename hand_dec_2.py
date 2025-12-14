@@ -23,7 +23,7 @@ MODEL_COMPLEXITY = 1
 HAND_BACK_KEYS   = [0, 5, 9, 13, 17]
 ZERO_FRAMES      = 100
 
-Z0_MM_DEFAULT    = 600.0
+Z0_MM_DEFAULT    = 523.1
 GAIN_FILE        = "press_gain.json"
 RC_FILE          = "residual_correction.json"
 ZERO_OFFSET_MM   = 0.0

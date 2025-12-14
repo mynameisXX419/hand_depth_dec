@@ -1,0 +1,9 @@
+{
+  "n_pairs": 44,
+  "mean_dt_ms": -243.72727272727272,
+  "median_dt_ms": -320.5,
+  "std_dt_ms": 257.8843436712353,
+  "min_dt_ms": -520.0,
+  "max_dt_ms": 525.0,
+  "offset_ms": 170.0
+}
