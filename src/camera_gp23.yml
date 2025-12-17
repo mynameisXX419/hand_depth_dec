@@ -1,0 +1,26 @@
+%YAML:1.0
+---
+camera_matrix: !!opencv-matrix
+  rows: 3
+  cols: 3
+  dt: d
+  data: [ 1012.3802998281, 0.000000, 671.4018339545,
+          0.000000, 1012.6075744893, 493.4330705582,
+          0.000000, 0.000000, 1.000000 ]
+distortion_coefficients: !!opencv-matrix
+  rows: 1
+  cols: 5
+  dt: d
+  data: [ 0.0708373999, -0.1515990744, 0.0000000000, 0.0000000000, 0.0000000000 ]
+rotation_matrix: !!opencv-matrix
+  rows: 3
+  cols: 3
+  dt: d
+  data: [ 0.974247, -0.003763, 0.225476,
+          0.015226, 0.998354, -0.055556,
+         -0.225181, 0.057278, 0.972517 ]
+translation_vector: !!opencv-matrix
+  rows: 3
+  cols: 1
+  dt: d
+  data: [ -13.6280999548, 10.3471111602, 433.6713819820 ]

@@ -58,7 +58,7 @@ _last_peak_export_idx = 0
 def fetch_new_peaks():
     """
     返回自上次调用以来的新压力峰
-    return: List of (local_idx, global_idx, press_val, t_ms)
+    return: List of (local_idx, global_idx, press_val, t_ms, frame_256)
     """
     global _last_peak_export_idx
 
@@ -73,13 +73,15 @@ def fetch_new_peaks():
     results = []
     for i, p in enumerate(new_peaks):
         results.append((
-            start_idx + i,   # local_idx（pressure侧序号）
-            p["idx"],       # global_idx（采样 idx）
-            p["val"],       # 峰值
-            p["t"],         # PC 时间戳 ms
+            start_idx + i,          # local_idx（pressure侧序号）
+            p["idx"],               # global_idx（采样 idx）
+            p["val"],               # 峰值（滤波后）
+            p["t"],                 # PC 时间戳 ms
+            p.get("frame", None),   # ★ 256 个压力值（list[int]）
         ))
 
     return results
+
 
 
 # ================= CRC16 =================
@@ -116,6 +118,9 @@ def _rx_thread():
     global _state, _press_start_t, _last_peak_t
     global _peak_max_val, _peak_max_idx, _peak_max_t
 
+    # ★ 新增：缓存最近一帧 256 点压力图
+    _last_frame_256 = None
+
     print(f"[pressure] open {SERIAL_DEV} @ {BAUDRATE}")
     ser = serial.Serial(SERIAL_DEV, BAUDRATE, timeout=TIMEOUT_S)
 
@@ -138,7 +143,12 @@ def _rx_thread():
         if _crc16(packet[:-2]) != crc_recv:
             continue
 
+        # ================= 解析 256 点压力阵列 =================
         vals = struct.unpack("<256H", payload)
+
+        # ★ 关键：缓存当前 256 点（list，方便 JSON / deepcopy / Qt）
+        _last_frame_256 = list(vals)
+
         val_raw = int(sum(vals))
 
         _ma_buf.append(val_raw)
@@ -168,7 +178,7 @@ def _rx_thread():
                     _peak_max_idx = _global_idx
                     _peak_max_t   = recv_ms
 
-                # 只靠时间结束一次按压
+                # ===== 一次按压结束（时间判定）=====
                 if recv_ms - _press_start_t >= MIN_PRESS_DURATION_MS:
                     interval = None
                     bpm = None
@@ -176,10 +186,12 @@ def _rx_thread():
                         interval = _peak_max_t - _last_peak_t
                         bpm = 60000 / interval
 
+                    # ★ 关键修改：把 256 点 frame 一起存入峰值
                     _peaks.append({
                         "idx": _peak_max_idx,
                         "val": int(_peak_max_val),
                         "t": _peak_max_t,
+                        "frame": _last_frame_256,   # ✅ 现在一定是 256 长度
                     })
 
                     print(
@@ -197,7 +209,6 @@ def _rx_thread():
 
     ser.close()
     print("[pressure] rx exit")
-
 
 # ================= API =================
 def init_pressure_detector():

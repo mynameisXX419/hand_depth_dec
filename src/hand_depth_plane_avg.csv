@@ -1,0 +1,1 @@
+frame_idx,timestamp_ms,depth_raw_mm,depth_ema_mm,depth_kf_mm,depth_corr_mm,sig_mm,conf,conf_ema,vision_state,has_hand,has_main_hand,velocity_mm_s,motion_mm,gain,offset_mm,cos_tilt
