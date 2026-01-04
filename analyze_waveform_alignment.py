@@ -87,12 +87,20 @@ def best_lag(a, b, dt_ms):
 # 峰检测
 # ============================================================
 
-def detect_peaks_pressure(t, x, thr_percentile=60, min_dt_ms=250):
-    thr = np.percentile(x, thr_percentile)
-    peaks, last = [], -1e12
+def detect_peaks_pressure(t, x,
+                          thr_percentile=60,
+                          min_dt_ms=250,
+                          min_abs_value=100000):
+    thr = max(np.percentile(x, thr_percentile), min_abs_value)
+    print(f"[Pressure] threshold used = {thr:.1f}")
 
+    peaks, last = [], -1e12
     for i in range(1, len(x)-1):
-        if x[i] >= x[i-1] and x[i] >= x[i+1] and x[i] >= thr:
+        if (
+            x[i] >= x[i-1] and
+            x[i] >= x[i+1] and
+            x[i] >= thr
+        ):
             if t[i] - last >= min_dt_ms:
                 peaks.append((t[i], x[i], i))
                 last = t[i]
@@ -140,6 +148,7 @@ def filter_visual_peaks(t, x, pt, pv, pi,
 
     for k in range(len(pt)):
         idx = int(pi[k])
+
         L, R = max(0, idx-50), min(len(x)-1, idx+50)
         valley = min(np.min(x[L:idx+1]), np.min(x[idx:R+1]))
 
@@ -158,26 +167,41 @@ def filter_visual_peaks(t, x, pt, pv, pi,
 
 
 # ============================================================
-# 严格序号配对
+# 配对 + 频率计算
 # ============================================================
 
-def pair_peaks_with_index(tp, ip, tv, iv):
-    n = min(len(tp), len(tv))
+def pair_peaks_with_metrics(tp, ip, tv, iv):
     pairs = []
-    for k in range(n):
+    prev_tp = None
+
+    for k in range(min(len(tp), len(tv))):
+        pair_dt = tv[k] - tp[k]
+
+        if prev_tp is None:
+            interval_ms = np.nan
+            rate_cpm = np.nan
+        else:
+            interval_ms = tp[k] - prev_tp
+            rate_cpm = 60000.0 / interval_ms if interval_ms > 0 else np.nan
+
         pairs.append((
             k,
             int(ip[k]),
             int(iv[k]),
             float(tp[k]),
             float(tv[k]),
-            float(tv[k] - tp[k])
+            float(pair_dt),
+            float(interval_ms),
+            float(rate_cpm)
         ))
+
+        prev_tp = tp[k]
+
     return pairs
 
 
 # ============================================================
-# 绘图（带配对线）
+# 绘图
 # ============================================================
 
 def plot_peaks_with_pairs(t, p, v, ip, iv, pairs, label_p):
@@ -190,18 +214,13 @@ def plot_peaks_with_pairs(t, p, v, ip, iv, pairs, label_p):
     plt.plot(t[ip]/1000, pn[ip], 'bo', label="P peaks")
     plt.plot(t[iv]/1000, vn[iv], 'ro', label="V peaks")
 
-    for k, pi, vi, tp, tv, dt in pairs:
+    for k, pi, vi, tp, tv, *_ in pairs:
         plt.plot([tp/1000, tv/1000],
                  [pn[pi], vn[vi]],
                  'k--', alpha=0.6)
-        if k < 6:
-            plt.text((tp+tv)/2000,
-                     (pn[pi]+vn[vi])/2,
-                     f"{k}", fontsize=8)
 
     plt.grid(True)
     plt.legend()
-    plt.title("Peak Alignment with Pairing Index")
     plt.tight_layout()
     plt.savefig("peaks_overlay_with_pairs.svg")
 
@@ -211,10 +230,12 @@ def plot_peaks_with_pairs(t, p, v, ip, iv, pairs, label_p):
 # ============================================================
 
 def main():
-    print("=== Dual Peak Alignment + Pair Print ===")
+    print("=== Dual Peak Alignment + Pair + Rate Print ===")
 
     tP, xP, used_key = load_pressure_series()
-    tV, xV = load_csv("hand_depth_plane_avg.csv", "timestamp_ms", "depth_corr_mm")
+    tV, xV = load_csv("hand_depth_plane_avg.csv",
+                      "timestamp_ms",
+                      "depth_corr_mm")
 
     t, p, v = resample(tP, xP, tV, xV)
     if t is None:
@@ -225,27 +246,38 @@ def main():
     print(f"[Xcorr] lag={lag:.1f} ms | corr={corr:.3f}")
 
     tp, _, ip = detect_peaks_pressure(t, p)
+    print(f"[Pressure] peaks: {len(tp)}")
+
     tv, vv, iv = detect_peaks_vision_segmented(t, v)
+    mask = (vv >= 20.0) & (vv <= 80.0)
+    tv, vv, iv = tv[mask], vv[mask], iv[mask]
     tv, vv, iv = filter_visual_peaks(t, v, tv, vv, iv)
+    print(f"[Vision] peaks: {len(tv)}")
 
-    pairs = pair_peaks_with_index(tp, ip, tv, iv)
+    pairs = pair_peaks_with_metrics(tp, ip, tv, iv)
+    print(f"\nTotal matched pairs: {len(pairs)}\n")
 
-    print("\n=== Peak Pairing Result ===")
-    print(f"Total matched pairs: {len(pairs)}\n")
-
-    for k, pi, vi, tp_k, tv_k, dt in pairs:
+    for p in pairs:
         print(
-            f"[PAIR {k:02d}] "
-            f"P_idx={pi:<4d}  V_idx={vi:<4d}  "
-            f"P_t={tp_k/1000:.3f}s  "
-            f"V_t={tv_k/1000:.3f}s  "
-            f"Δt={dt:.1f} ms"
+            f"[PAIR {p[0]:02d}] "
+            f"Δt={p[5]:7.1f} ms | "
+            f"Interval={p[6]:7.1f} ms | "
+            f"Rate={p[7]:6.1f} cpm"
         )
 
-    pd.DataFrame(pairs,
-                 columns=["pair_id", "pressure_idx", "vision_idx",
-                          "pressure_t_ms", "vision_t_ms", "dt_ms"]
-                 ).to_csv("peak_pairs.csv", index=False)
+    pd.DataFrame(
+        pairs,
+        columns=[
+            "pair_id",
+            "pressure_idx",
+            "vision_idx",
+            "pressure_t_ms",
+            "vision_t_ms",
+            "pair_dt_ms",
+            "pressure_interval_ms",
+            "compression_rate_cpm"
+        ]
+    ).to_csv("peak_pairs_with_rate.csv", index=False)
 
     plot_peaks_with_pairs(
         t, p, v, ip, iv, pairs,
@@ -253,7 +285,7 @@ def main():
     )
 
     print("\nSaved:")
-    print(" - peak_pairs.csv")
+    print(" - peak_pairs_with_rate.csv")
     print(" - peaks_overlay_with_pairs.svg")
 
 

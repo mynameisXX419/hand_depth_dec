@@ -10,12 +10,13 @@ import numpy as np
 from collections import deque
 import csv, time, os, json, socket
 from camera_calib_loader import load_camera_params
+from typing import List
 
 # ------------------ 基本配置 ------------------
 WINDOW_NAME = "Hand Depth Monitor"
 CALIB_FILE       = "camera_gp23.yml"
 EXTRINSIC_FILE   = "extrinsic_result.yml"
-CAM_ID           = 2
+CAM_ID           = 0
 LOG_PATH         = "./hand_depth_plane_avg.csv"
 SOCKET_PATH      = "/tmp/press_event.sock"
 

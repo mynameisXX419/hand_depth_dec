@@ -11,6 +11,7 @@ import serial
 import struct
 import threading
 import time
+import csv  
 from typing import Optional
 from collections import deque
 
@@ -26,7 +27,7 @@ TIMEOUT_S = 1.0
 # ================= 参数（核心） =================
 MA_WINDOW = 5
 
-PRESS_ON = 50000                 # 进入按压阈值
+PRESS_ON = 100000                 # 进入按压阈值
 MIN_PRESS_DURATION_MS = 250     # 最短按压
 MIN_INTER_PRESS_MS    = 450     # 相邻按压最小间隔
 
@@ -58,7 +59,7 @@ _last_peak_export_idx = 0
 def fetch_new_peaks():
     """
     返回自上次调用以来的新压力峰
-    return: List of (local_idx, global_idx, press_val, t_ms, frame_256)
+    return: List of (local_idx, global_idx, press_val, t_ms, frame_256, bpm)
     """
     global _last_peak_export_idx
 
@@ -73,16 +74,15 @@ def fetch_new_peaks():
     results = []
     for i, p in enumerate(new_peaks):
         results.append((
-            start_idx + i,          # local_idx（pressure侧序号）
-            p["idx"],               # global_idx（采样 idx）
-            p["val"],               # 峰值（滤波后）
-            p["t"],                 # PC 时间戳 ms
-            p.get("frame", None),   # ★ 256 个压力值（list[int]）
+            start_idx + i,            # local_idx
+            p["idx"],                 # global_idx
+            p["val"],                 # press_val
+            p["t"],                   # t_ms
+            p.get("frame", None),     # frame_256
+            p.get("bpm", None),       # ✅ 新增：bpm
         ))
 
     return results
-
-
 
 # ================= CRC16 =================
 def _crc16(data: bytes) -> int:
@@ -191,7 +191,9 @@ def _rx_thread():
                         "idx": _peak_max_idx,
                         "val": int(_peak_max_val),
                         "t": _peak_max_t,
-                        "frame": _last_frame_256,   # ✅ 现在一定是 256 长度
+                        "bpm": bpm,                 # ✅ 新增
+                        "interval_ms": interval,    # （可选，方便调试/论文）
+                        "frame": _last_frame_256,
                     })
 
                     print(
@@ -218,17 +220,18 @@ def init_pressure_detector():
     print("[pressure] detector started")
 
 
-def export_series_csv(path="pressure_series_test.csv"):
-    import csv
+def export_series_csv(path="pressure_series.csv"):
+    with _lock:
+        snapshot = list(_samples)
+
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["idx", "host_ms", "val_raw", "val_filt"])
-        for s in _samples:
+        for s in snapshot:
             w.writerow([s["idx"], s["host_ms"], s["val_raw"], int(s["val_filt"])])
 
 
 def export_peaks_csv(path="pressure_peaks_test.csv"):
-    import csv
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["idx", "peak_val", "t_ms"])

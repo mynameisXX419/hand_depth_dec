@@ -1,5 +1,5 @@
 # ============================================
-# listener_fusion_predict.py
+# listener_fusion_4.py
 # —— 视觉丢失自动用压力预测深度
 # ============================================
 
@@ -13,13 +13,23 @@ import sys
 import numpy as np
 from collections import deque
 
-import pressure_detector_4 as pressure_detector
-last_peak_time_ms = None
+import pressure_detector_5 as pressure_detector
+# last_peak_time_ms = None
+last_press_bpm = None
 last_press_val = None
 
 
 # ================= 初始化压力检测 =================
 pressure_detector.init_pressure_detector()
+
+def wait_and_collect_pressure_peaks(wait_ms, poll_interval_ms=5):
+    """
+    Actively fetch pressure peaks during wait window.
+    """
+    t_end = time.time() + wait_ms / 1000.0
+    while time.time() < t_end:
+        # fetch_and_dispatch_pressure_peaks()
+        time.sleep(poll_interval_ms / 1000.0)
 
 
 # ================= Ctrl+C 处理 =================
@@ -171,15 +181,16 @@ a_hist, b_hist = deque(maxlen=5), deque(maxlen=5)
 fit_params = None
 MIN_PAIR_FOR_FIT = 3
 RMSE_THRESH_UPDATE = 5.0
-
+used_pressure_ids = set()
 
 # ================= 时间对齐 =================
-OFFSET_MS = 350.0
-MAX_LOOKBACK_MS = 1500.0
-WAIT_MS_FOR_PRESS = 500.0
+# OFFSET_MS = 350.0
+MAX_LOOKBACK_MS = 1200.0
+WAIT_MS_FOR_PRESS = 80
 
-press_peak_buffer = deque()
-
+# ===== pressure peak buffers (DO NOT MIX) =====
+vision_press_buffer = deque(maxlen=50)
+pressure_only_buffer = deque(maxlen=50)
 
 # ================= CSV =================
 csv_file = open("occlusion_first_pressure_predict.csv", "w", newline="")
@@ -210,6 +221,32 @@ occl_seq_id = 0
 in_occlusion_segment = False
 first_predict_in_segment = False
 
+PRESSURE_KEEP_MS = 2000  # 至少覆盖 2 秒
+
+def prune_pressure_buffer(now_ms):
+    while vision_press_buffer:
+        _, _, _, t_ms, _, _ = vision_press_buffer[0]
+        if now_ms - t_ms > PRESSURE_KEEP_MS:
+            vision_press_buffer.popleft()
+        else:
+            break
+
+def fetch_and_dispatch_pressure_peaks():
+    new_peaks = pressure_detector.fetch_new_peaks()
+    if not new_peaks: return
+    
+    arrival_time_ms = time.time() * 1000 
+    for item in new_peaks:
+        l_idx, g_idx, p_val, _, frame_256, bpm = item
+        corrected_item = (l_idx, g_idx, p_val, arrival_time_ms, frame_256, bpm)
+        
+        vision_press_buffer.append(corrected_item)
+        pressure_only_buffer.append(corrected_item)
+    
+    # 在这里统一清理超过 5 秒的数据，确保 buffer 足够深
+    while len(vision_press_buffer) > 100: # 或者按时间判断
+        vision_press_buffer.popleft()
+
 
 # ================= 工具函数 =================
 def fit_linear(press, depth):
@@ -225,56 +262,35 @@ def fit_linear(press, depth):
     return a, b, rmse, mae
 
 
-def filter_pressure_peaks(vis_time_ms):
-    new_peaks = pressure_detector.fetch_new_peaks()
-
-    # ===== 1️⃣ 新 pressure peak =====
-    if new_peaks:
-        print(
-            f"[DEBUG][PRESSURE_PEAK] count={len(new_peaks)} "
-            f"last=(press={new_peaks[-1][2]}, t={new_peaks[-1][3]})"
-        )
-
-    for item in new_peaks:
-        press_peak_buffer.append(item)
-
-    # ===== 2️⃣ 清理过期 peak =====
-    while press_peak_buffer:
-        l_idx, g_idx, p_val, t_ms, frame_256 = press_peak_buffer[0]
-        dt = t_ms - vis_time_ms
-        if dt < -MAX_LOOKBACK_MS:
-            press_peak_buffer.popleft()
-        else:
-            break
-
-    # ===== 3️⃣ 构造候选 =====
+def filter_pressure_peaks(vis_time_ms, is_vision_peak=True):
+    """
+    is_vision_peak: 如果为 True，代表是视觉真实峰值，允许匹配已被使用的 ID
+    """
+    SEARCH_BACK = 1200.0  # 视觉延迟可能很大，找回 1.2s 内的压力
+    SEARCH_FORWARD = 200.0
+    
     candidates = []
-    for item in press_peak_buffer:
-        l_idx, g_idx, p_val, t_ms, frame_256 = item
-        dt = t_ms - vis_time_ms
-        if -MAX_LOOKBACK_MS <= dt <= 300:
-            candidates.append((item, dt))
-
-    # ===== 4️⃣ 无匹配 =====
+    for item in list(vision_press_buffer):
+        _, g_idx, p_val, t_ms, _, _ = item
+        
+        # 如果不是视觉 Peak（即处于压力预测模式），则不能使用已用过的点
+        if not is_vision_peak and (g_idx in used_pressure_ids):
+            continue
+            
+        diff = t_ms - vis_time_ms 
+        if -SEARCH_BACK <= diff <= SEARCH_FORWARD:
+            candidates.append((item, abs(diff)))
+    
     if not candidates:
-        print(
-            f"[DEBUG][ALIGN] no pressure peak match "
-            f"vis_time={vis_time_ms:.1f} "
-            f"buffer_size={len(press_peak_buffer)}"
-        )
         return []
 
-    # ===== 5️⃣ 选择最优 =====
-    best, dt = min(candidates, key=lambda x: abs(x[1] + OFFSET_MS))
-    press_peak_buffer.remove(best)
+    # 取时间最接近的
+    best_item, _ = min(candidates, key=lambda x: x[1])
+    
+    # 记录该 ID 已被匹配使用
+    used_pressure_ids.add(best_item[1]) # 注意：g_idx 是 item[1]
+    return [best_item]
 
-    print(
-        f"[DEBUG][ALIGN] matched "
-        f"dt={dt:.1f}ms "
-        f"press={best[2]}"
-    )
-
-    return [best]
 
 def mark_occlusion_start():
     global occl_seq_id, in_occlusion_segment, first_predict_in_segment
@@ -282,10 +298,16 @@ def mark_occlusion_start():
         occl_seq_id += 1
         in_occlusion_segment = True
         first_predict_in_segment = True
+
+        # # ⭐ 关键：只从遮挡开始算
+        # pressure_only_buffer.clear()
+
         print(f"{COLORS['state']}[OCCL_START] seq={occl_seq_id}{COLORS['reset']}")
         ui_sock.sendto(json.dumps({
             "type": "occlusion"
         }).encode(), UI_SOCKET_PATH)
+    pressure_only_buffer.clear() 
+
         
 
 
@@ -298,11 +320,13 @@ def mark_occlusion_end():
         }).encode(), UI_SOCKET_PATH)
     in_occlusion_segment = False
     first_predict_in_segment = False
+    used_pressure_ids.clear() 
 
 
 # ================= 主循环 =================
 try:
     while True:
+        fetch_and_dispatch_pressure_peaks()
         try:
             data, _ = sock.recvfrom(1024)
         except socket.timeout:
@@ -316,9 +340,14 @@ try:
 
             a, b, _ = fit_params
 
-            new_peaks = pressure_detector.fetch_new_peaks()
-            for l_idx, g_idx, p_val, t_ms, frame_256 in new_peaks:
+            for item in list(pressure_only_buffer):
+                l_idx, g_idx, p_val, t_ms, frame_256, bpm = item
+
+                if g_idx in used_pressure_ids:
+                    continue           # ⭐ 必须有
+                used_pressure_ids.add(g_idx)   # ⭐ 关键
                 pred_depth = a + b * float(p_val)
+                last_press_bpm = bpm
                 current_cc_index += 1
 
                 print(
@@ -333,7 +362,7 @@ try:
                     "type": "pressure_only",
                     "press": float(p_val),
                     "pred_depth": float(pred_depth),
-                    # "frame_256": frame_256,
+                    "bpm": last_press_bpm,                 # ✅ 直接用压力算好的
                     "is_predicted": True
                 }
 
@@ -350,8 +379,10 @@ try:
                         "type": "pressure_only",
                         "seq": current_cc_index,
                         "frame_256": frame_256,
+                        "bpm": last_press_bpm,  
                         "is_predicted": True
                     }
+
                     try:
                        pressure_sock.sendto(json.dumps(pressure_payload).encode(), UI_PRESSURE_SOCKET_PATH)
                     except Exception as e:
@@ -386,24 +417,44 @@ try:
 
         # ========== 视觉 PEAK ==========
         if t == "peak":
+            
             depth = float(msg["depth"])
             idx = int(msg["idx"])
             current_cc_index = idx
-
-            # --- 1. 时间戳 ---
-            vis_time_ms = float(
-                msg.get("vis_time_ms", time.time() * 1000)
-            )
-
-            # --- 2. BPM 计算 ---
-            bpm = None
-            if last_peak_time_ms is not None:
-                dt_ms = vis_time_ms - last_peak_time_ms
-                if dt_ms > 0:
-                    bpm = 60_000.0 / dt_ms
-            last_peak_time_ms = vis_time_ms
-
             print(f"{COLORS['peak']}[PEAK] #{idx} depth={depth:.2f}{COLORS['reset']}")
+            
+            # 1. 获取视觉时间戳
+            vis_time_ms = float(msg.get("vis_time_ms", time.time() * 1000))
+            
+            # 2. 匹配前先拉取最新压力数据
+            fetch_and_dispatch_pressure_peaks() 
+
+            # 3. 执行匹配 (显式传入 is_vision_peak=True)
+            matched = filter_pressure_peaks(vis_time_ms, is_vision_peak=True)
+            
+            if not matched:
+                # 再次尝试：等一下数据传输延迟
+                for _ in range(3):
+                    time.sleep(0.01)
+                    fetch_and_dispatch_pressure_peaks()
+                    matched = filter_pressure_peaks(vis_time_ms, is_vision_peak=True)
+                    if matched: break
+
+            if not matched:
+                if vision_press_buffer:
+                    b_start = vision_press_buffer[0][3]
+                    b_end = vision_press_buffer[-1][3]
+                    print(f"{COLORS['occlusion_lost']}[WARN] Peak #{idx} fail. Vis:{vis_time_ms:.0f}, Buffer:[{b_start:.0f}-{b_end:.0f}]{COLORS['reset']}")
+                continue
+            # --- 2. BPM 计算 ---
+            # bpm = None
+            # if last_peak_time_ms is not None:
+            #     dt_ms = vis_time_ms - last_peak_time_ms
+            #     if dt_ms > 0:
+            #         bpm = 60_000.0 / dt_ms
+            # last_peak_time_ms = vis_time_ms
+
+            
 
             # --- 3. 先发一次 peak（pressure 可能为空）---
             payload = {
@@ -411,26 +462,21 @@ try:
                 "idx": idx,
                 "depth": depth,
                 "press": last_press_val,
-                "bpm": bpm
+                "bpm": last_press_bpm
             }
             ui_sock.sendto(json.dumps(payload).encode(), UI_SOCKET_PATH)
 
-            # --- 4. 等待压力峰 ---
-            time.sleep(WAIT_MS_FOR_PRESS / 1000.0)
-
-            matched = filter_pressure_peaks(vis_time_ms)
-            if not matched:
-                print("[WARN] no matched pressure peak")
-                continue
 
             # --- 5. 拿到 pressure ---
-            _, _, p_val, _, frame_256 = matched[0]
-            last_press_val = float(p_val)
+            _, _, p_val, _, frame_256, press_bpm = matched[0]
 
+            last_press_val = float(p_val)
+            last_press_bpm = press_bpm  
             ui_sock.sendto(json.dumps({
                 "type": "peak_update",
                 "idx": idx,
-                "press": last_press_val
+                "press": last_press_val,
+                "bpm": last_press_bpm
                 # "frame_256": frame_256      # ★ 新增：256 个压力值
             }).encode(), UI_SOCKET_PATH)
             # print("[DEBUG] peak_update sent, frame_256 len =", len(frame_256))
@@ -459,33 +505,41 @@ try:
             depth_queue.append(depth)
 
             # --- 6. 拟合 ---
+            # --- 6. 拟合 (始终更新模式) ---
             if len(press_queue) >= MIN_PAIR_FOR_FIT:
                 res = fit_linear(press_queue, depth_queue)
                 if res:
                     a, b, rmse, mae = res
-                    if rmse <= RMSE_THRESH_UPDATE:
-                        a_hist.append(a)
-                        b_hist.append(b)
-                        fit_params = (
-                            np.mean(a_hist),
-                            np.mean(b_hist),
-                            rmse
-                        )
+                    
+                    # 💡 去掉阈值判断，始终更新历史队列
+                    a_hist.append(a)
+                    b_hist.append(b)
+                    
+                    # 计算平滑后的参数
+                    fit_params = (
+                        np.mean(a_hist),
+                        np.mean(b_hist),
+                        rmse
+                    )
 
-                        print(
-                            f"{COLORS['fit']}[FIT]{COLORS['reset']} "
-                            f"depth = {fit_params[0]:.3f} + "
-                            f"{fit_params[1]:.6f} × press | "
-                            f"RMSE={rmse:.3f}, MAE={mae:.3f}"
-                        )
+                    # 根据误差选择颜色
+                    fit_color = COLORS['fit'] if rmse <= 5.0 else COLORS['occlusion']
+                    
+                    # ⭐ 修改这里：在 print 中加入 mae 的显示
+                    print(
+                        f"{fit_color}[FIT_ALWAYS]{COLORS['reset']} "
+                        f"Raw:[{a:.4f}, {b:.6f}] -> Final:[{fit_params[0]:.4f}, {fit_params[1]:.6f}] "
+                        f"RMSE={rmse:.3f}, MAE={mae:.3f}{' (HIGH ERROR)' if rmse > 5.0 else ''}"
+                    )
 
-                        ui_sock.sendto(json.dumps({
-                            "type": "fit",
-                            "a": fit_params[0],
-                            "b": fit_params[1],
-                            "rmse": rmse,
-                            "mae": mae
-                        }).encode(), UI_SOCKET_PATH)
+                    # 发送给 UI（这里原本就是正确的）
+                    ui_sock.sendto(json.dumps({
+                        "type": "fit",
+                        "a": fit_params[0],
+                        "b": fit_params[1],
+                        "rmse": rmse,
+                        "mae": mae
+                    }).encode(), UI_SOCKET_PATH)
 
 
 

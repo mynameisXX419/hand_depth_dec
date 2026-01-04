@@ -7,11 +7,11 @@ import os
 
 # ================= 基本配置 =================
 
-PYTHON = "/home/ljy/anaconda3/envs/mp_hands/bin/python"
+PYTHON = "/home/ljy/anaconda3/envs/handdepth_v2/bin/python"
 
 APPDESIGN = (
-    "/home/ljy/project/qt_press_image/pressprogress1/"
-    "appdesign_4/build/AppDesign"
+    "/home/ljy/project/cpr-fusion-ui-main"
+    "/build/AppDesign"
 )
 
 PROCS = []
@@ -62,7 +62,7 @@ def start_binary(path, name):
     return p
 
 
-# ================= 窗口布局（关键新增） =================
+# ================= 窗口布局 =================
 
 def layout_windows():
     """
@@ -73,32 +73,25 @@ def layout_windows():
     """
     print("[INFO] arranging windows...")
 
-    # 等待所有窗口真正出现（比 sleep 稳）
     for _ in range(20):
         ret = os.system("wmctrl -l | grep -q 'Hand Depth Monitor'")
         if ret == 0:
             break
         time.sleep(0.1)
 
-    # time.sleep(0.00001)
-
-    # ===== 1️⃣ 视觉窗口（左，大）=====
+    # 1️⃣ 视觉窗口
     os.system(
         "wmctrl -r 'Hand Depth Monitor' "
         "-e 0,0,0,1355,960"
     )
 
-    time.sleep(0.00001)
-
-    # ===== 2️⃣ 融合监控（右上）=====
+    # 2️⃣ 融合监控
     os.system(
         "wmctrl -r 'CPR Fusion Monitor' "
         "-e 0,1355,0,721,160"
     )
 
-    # time.sleep(0.00001)
-
-    # ===== 3️⃣ 压力界面（右下）=====
+    # 3️⃣ 压力界面
     os.system(
         "wmctrl -r 'Pressure Feedback Interface' "
         "-e 0,1355,255,721,827"
@@ -107,42 +100,55 @@ def layout_windows():
     print("[INFO] window layout done")
 
 
-
-# ================= 停止逻辑 =================
+# ================= 停止逻辑（最终稳定版） =================
 
 def stop_all(sig=None, frame=None):
     print("\n[INFO] Shutting down all processes...")
 
+    # 1️⃣ 给所有子进程发 SIGINT（Python 进程自行收尾）
     for name, p in PROCS:
         if p.poll() is None:
-            print(f"[STOP] {name}")
+            print(f"[SIGINT] {name}")
             try:
                 p.send_signal(signal.SIGINT)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[WARN] failed to SIGINT {name}: {e}")
 
-    time.sleep(1.0)
+    # 2️⃣ 等待 Python 关键进程优雅退出（最多 5 秒）
+    for _ in range(10):
+        alive = False
+        for name, p in PROCS:
+            if p.poll() is None:
+                alive = True
+        if not alive:
+            break
+        time.sleep(0.5)
 
+    # 3️⃣ 兜底 kill：Qt UI / C++ UI（不依赖 SIGINT）
     for name, p in PROCS:
-        if p.poll() is None:
+        if p.poll() is None and name in (
+            "pressure_ui",   # C++ Qt
+            "qt_ui",         # Python Qt（不响应 SIGINT）
+        ):
             print(f"[KILL] {name}")
             try:
                 p.kill()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[WARN] failed to kill {name}: {e}")
 
-    print("[INFO] Exit")
+    print("[INFO] Exit launcher")
     sys.exit(0)
 
 
 signal.signal(signal.SIGINT, stop_all)
 signal.signal(signal.SIGTERM, stop_all)
 
+
 # ================= 主入口 =================
 
 if __name__ == "__main__":
 
-    # ===== 清理旧 socket（非常重要）=====
+    # ===== 清理旧 socket =====
     for p in (
         "/tmp/ui_event.sock",
         "/tmp/ui_pressure.sock",
@@ -161,20 +167,21 @@ if __name__ == "__main__":
     # 启动顺序（不要随意改）
     # =====================================================
 
-    # 0️⃣ C++ Qt UI（压力图 + CNN）
+    # 0️⃣ C++ Qt UI（压力图）
     start_binary(APPDESIGN, "pressure_ui")
     time.sleep(0.5)
 
-    # 1️⃣ Python Qt UI（融合展示）
+    # 1️⃣ Python Qt UI（融合监控）
     start([PYTHON, "qt_fusion_monitor.py"], "qt_ui")
     time.sleep(0.5)
 
-    # 2️⃣ Fusion / Listener
+    # 2️⃣ Fusion / Listener（关键：pressure 数据保存）
     start([PYTHON, "listener_fusion_4.py"], "fusion")
     time.sleep(0.5)
 
     # 3️⃣ Vision
     start([PYTHON, "hand_dec_3.py"], "vision")
+    # start([PYTHON, "hand_dec_4.py"], "vision")
 
     # ===== 自动布局窗口 =====
     layout_windows()

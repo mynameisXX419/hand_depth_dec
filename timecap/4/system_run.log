@@ -1,0 +1,324 @@
+[pressure] open /dev/ttyUSB0 @ 2000000
+[pressure] detector started
+[INFO] Listening on /tmp/press_event.sock
+[INFO] waiting for UI socket...
+[INFO] UI socket ready
+[INFO] waiting for UI pressure socket...
+[INFO] UI pressure socket ready
+[INFO] pressure socket sender ready
+=== 相机张正友法标定参数读取完成 ===
+内参矩阵 K:
+ [[1.01473656e+03 0.00000000e+00 6.72638371e+02]
+ [0.00000000e+00 1.01488547e+03 4.94282643e+02]
+ [0.00000000e+00 0.00000000e+00 1.00000000e+00]]
+畸变系数 D:
+ [ 0.0708374  -0.15159907  0.          0.          0.        ]
+[INFO] Logging to ./hand_depth_plane_avg.csv
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+[92m[PEAK] #1 depth=45.46[0m
+[PEAK #01] idx=  441 val=173740 t=1767151817383 
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=173740, t=1767151817383)
+[DEBUG][ALIGN] matched dt=-18.0ms press=173740
+[DEBUG][SEND_PRESSURE] type=peak_update seq=1 len=256 min=7 max=2545
+[92m[PEAK] #2 depth=47.82[0m
+[ WARN:32@11.960] global /home/ljy/software/opencv/modules/core/src/matrix_expressions.cpp (1333) assign OpenCV/MatExpr: processing of multi-channel arrays might be changed in the future: https://github.com/opencv/opencv/issues/16739
+[PEAK #02] idx=  473 val=156105 t=1767151818135 interval=752ms bpm=79.8
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=156105, t=1767151818135)
+[DEBUG][ALIGN] matched dt=0.0ms press=156105
+[DEBUG][SEND_PRESSURE] type=peak_update seq=2 len=256 min=3 max=2528
+[92m[PEAK] #3 depth=43.73[0m
+[PEAK #03] idx=  501 val=164773 t=1767151818769 interval=634ms bpm=94.6
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=164773, t=1767151818769)
+[DEBUG][ALIGN] matched dt=-32.0ms press=164773
+[DEBUG][SEND_PRESSURE] type=peak_update seq=3 len=256 min=1 max=2384
+[94m[FIT][0m depth = 67.424 + -0.000132 × press | RMSE=1.381, MAE=1.302
+[92m[PEAK] #4 depth=51.12[0m
+[PEAK #04] idx=  530 val=169430 t=1767151819422 interval=653ms bpm=91.9
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=169430, t=1767151819422)
+[DEBUG][ALIGN] matched dt=-46.0ms press=169430
+[DEBUG][SEND_PRESSURE] type=peak_update seq=4 len=256 min=6 max=1933
+[94m[FIT][0m depth = 58.146 + -0.000072 × press | RMSE=2.770, MAE=2.402
+[92m[PEAK] #5 depth=43.29[0m
+[PEAK #05] idx=  563 val=164679 t=1767151820076 interval=654ms bpm=91.7
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=164679, t=1767151820076)
+[DEBUG][ALIGN] matched dt=-58.0ms press=164679
+[DEBUG][SEND_PRESSURE] type=peak_update seq=5 len=256 min=6 max=2089
+[94m[FIT][0m depth = 53.520 + -0.000044 × press | RMSE=2.894, MAE=2.578
+[92m[PEAK] #6 depth=47.01[0m
+[PEAK #06] idx=  595 val=158951 t=1767151820749 interval=673ms bpm=89.2
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=158951, t=1767151820749)
+[DEBUG][ALIGN] matched dt=-20.0ms press=158951
+[DEBUG][SEND_PRESSURE] type=peak_update seq=6 len=256 min=6 max=2150
+[94m[FIT][0m depth = 52.133 + -0.000035 × press | RMSE=2.656, MAE=2.215
+[92m[PEAK] #7 depth=43.62[0m
+[PEAK #07] idx=  619 val=156000 t=1767151821422 interval=673ms bpm=89.2
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=156000, t=1767151821422)
+[DEBUG][ALIGN] matched dt=-13.0ms press=156000
+[DEBUG][SEND_PRESSURE] type=peak_update seq=7 len=256 min=6 max=2124
+[94m[FIT][0m depth = 48.700 + -0.000015 × press | RMSE=2.612, MAE=2.375
+[92m[PEAK] #8 depth=43.59[0m
+[PEAK #08] idx=  650 val=163597 t=1767151822076 interval=654ms bpm=91.7
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=163597, t=1767151822076)
+[DEBUG][ALIGN] matched dt=-28.0ms press=163597
+[DEBUG][SEND_PRESSURE] type=peak_update seq=8 len=256 min=3 max=2114
+[94m[FIT][0m depth = 42.203 + 0.000025 × press | RMSE=2.572, MAE=2.303
+[92m[PEAK] #9 depth=48.18[0m
+[PEAK #09] idx=  681 val=162459 t=1767151822769 interval=693ms bpm=86.6
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=162459, t=1767151822769)
+[DEBUG][ALIGN] matched dt=-32.0ms press=162459
+[DEBUG][SEND_PRESSURE] type=peak_update seq=9 len=256 min=6 max=2093
+[94m[FIT][0m depth = 39.727 + 0.000039 × press | RMSE=2.552, MAE=2.350
+[92m[PEAK] #10 depth=43.97[0m
+[PEAK #10] idx=  709 val=162904 t=1767151823442 interval=673ms bpm=89.2
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=162904, t=1767151823442)
+[DEBUG][ALIGN] matched dt=-59.0ms press=162904
+[DEBUG][SEND_PRESSURE] type=peak_update seq=10 len=256 min=12 max=2203
+[94m[FIT][0m depth = 38.047 + 0.000049 × press | RMSE=2.494, MAE=2.277
+[PEAK #11] idx=  741 val=164012 t=1767151824075 interval=633ms bpm=94.8
+[92m[PEAK] #11 depth=45.83[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=164012, t=1767151824075)
+[DEBUG][ALIGN] matched dt=-129.0ms press=164012
+[DEBUG][SEND_PRESSURE] type=peak_update seq=11 len=256 min=8 max=2170
+[94m[FIT][0m depth = 35.626 + 0.000063 × press | RMSE=2.377, MAE=2.071
+[92m[PEAK] #12 depth=49.95[0m
+[PEAK #12] idx=  772 val=165696 t=1767151824768 interval=693ms bpm=86.6
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=165696, t=1767151824768)
+[DEBUG][ALIGN] matched dt=-35.0ms press=165696
+[DEBUG][SEND_PRESSURE] type=peak_update seq=12 len=256 min=10 max=2174
+[94m[FIT][0m depth = 34.858 + 0.000067 × press | RMSE=2.529, MAE=2.314
+[92m[PEAK] #13 depth=49.17[0m
+[PEAK #13] idx=  802 val=162422 t=1767151825481 interval=713ms bpm=84.2
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=162422, t=1767151825481)
+[DEBUG][ALIGN] matched dt=-22.0ms press=162422
+[DEBUG][SEND_PRESSURE] type=peak_update seq=13 len=256 min=9 max=2174
+[94m[FIT][0m depth = 34.517 + 0.000070 × press | RMSE=2.569, MAE=2.387
+[92m[PEAK] #14 depth=53.94[0m
+[PEAK #14] idx=  833 val=170077 t=1767151826135 interval=654ms bpm=91.7
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=170077, t=1767151826135)
+[DEBUG][ALIGN] matched dt=-33.0ms press=170077
+[DEBUG][SEND_PRESSURE] type=peak_update seq=14 len=256 min=11 max=2137
+[94m[FIT][0m depth = 29.565 + 0.000102 × press | RMSE=3.000, MAE=2.763
+[92m[PEAK] #15 depth=53.43[0m
+[PEAK #15] idx=  863 val=169637 t=1767151826808 interval=673ms bpm=89.2
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=169637, t=1767151826808)
+[DEBUG][ALIGN] matched dt=-59.0ms press=169637
+[DEBUG][SEND_PRESSURE] type=peak_update seq=15 len=256 min=1 max=1763
+[94m[FIT][0m depth = 22.182 + 0.000148 × press | RMSE=3.162, MAE=2.904
+[92m[PEAK] #16 depth=54.44[0m
+[PEAK #16] idx=  890 val=165197 t=1767151827541 interval=733ms bpm=81.9
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=165197, t=1767151827541)
+[DEBUG][ALIGN] matched dt=5.0ms press=165197
+[DEBUG][SEND_PRESSURE] type=peak_update seq=16 len=256 min=4 max=2106
+[94m[FIT][0m depth = 14.350 + 0.000198 × press | RMSE=3.479, MAE=3.095
+[92m[PEAK] #17 depth=54.19[0m
+[PEAK #17] idx=  923 val=166077 t=1767151828194 interval=653ms bpm=91.9
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=166077, t=1767151828194)
+[DEBUG][ALIGN] matched dt=-40.0ms press=166077
+[DEBUG][SEND_PRESSURE] type=peak_update seq=17 len=256 min=8 max=2207
+[94m[FIT][0m depth = 6.659 + 0.000248 × press | RMSE=3.645, MAE=3.192
+[92m[PEAK] #18 depth=51.42[0m
+[PEAK #18] idx=  954 val=167746 t=1767151828927 interval=733ms bpm=81.9
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=167746, t=1767151828927)
+[DEBUG][ALIGN] matched dt=-40.0ms press=167746
+[DEBUG][SEND_PRESSURE] type=peak_update seq=18 len=256 min=1 max=2091
+[94m[FIT][0m depth = -2.027 + 0.000303 × press | RMSE=3.575, MAE=3.102
+[92m[PEAK] #19 depth=53.62[0m
+[PEAK #19] idx=  988 val=163189 t=1767151829639 interval=712ms bpm=84.3
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=163189, t=1767151829639)
+[DEBUG][ALIGN] matched dt=-61.0ms press=163189
+[DEBUG][SEND_PRESSURE] type=peak_update seq=19 len=256 min=9 max=2185
+[94m[FIT][0m depth = -5.642 + 0.000326 × press | RMSE=3.711, MAE=3.169
+[PEAK #20] idx= 1022 val=158632 t=1767151830432 interval=793ms bpm=75.7
+[92m[PEAK] #20 depth=51.38[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=158632, t=1767151830432)
+[DEBUG][ALIGN] matched dt=-62.0ms press=158632
+[DEBUG][SEND_PRESSURE] type=peak_update seq=20 len=256 min=6 max=2202
+[94m[FIT][0m depth = -4.477 + 0.000321 × press | RMSE=3.750, MAE=3.219
+[PEAK #21] idx= 1051 val=163331 t=1767151831085 interval=653ms bpm=91.9
+[92m[PEAK] #21 depth=50.44[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=163331, t=1767151831085)
+[DEBUG][ALIGN] matched dt=-89.0ms press=163331
+[DEBUG][SEND_PRESSURE] type=peak_update seq=21 len=256 min=1 max=2242
+[94m[FIT][0m depth = -8.888 + 0.000350 × press | RMSE=3.444, MAE=2.777
+[92m[PEAK] #22 depth=50.77[0m
+[PEAK #22] idx= 1082 val=161970 t=1767151831817 interval=732ms bpm=82.0
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=161970, t=1767151831817)
+[DEBUG][ALIGN] matched dt=-50.0ms press=161970
+[DEBUG][SEND_PRESSURE] type=peak_update seq=22 len=256 min=10 max=2331
+[94m[FIT][0m depth = -14.158 + 0.000383 × press | RMSE=3.450, MAE=2.770
+[92m[PEAK] #23 depth=52.68[0m
+[PEAK #23] idx= 1115 val=161568 t=1767151832550 interval=733ms bpm=81.9
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=161568, t=1767151832550)
+[DEBUG][ALIGN] matched dt=-17.0ms press=161568
+[DEBUG][SEND_PRESSURE] type=peak_update seq=23 len=256 min=11 max=2252
+[94m[FIT][0m depth = -18.001 + 0.000409 × press | RMSE=3.328, MAE=2.644
+[92m[PEAK] #24 depth=55.67[0m
+[PEAK #24] idx= 1150 val=162900 t=1767151833243 interval=693ms bpm=86.6
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=162900, t=1767151833243)
+[DEBUG][ALIGN] matched dt=-24.0ms press=162900
+[DEBUG][SEND_PRESSURE] type=peak_update seq=24 len=256 min=0 max=2177
+[94m[FIT][0m depth = -22.907 + 0.000440 × press | RMSE=3.605, MAE=2.878
+[92m[PEAK] #25 depth=52.97[0m
+[PEAK #25] idx= 1173 val=156485 t=1767151834015 interval=772ms bpm=77.7
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=156485, t=1767151834015)
+[DEBUG][ALIGN] matched dt=15.0ms press=156485
+[DEBUG][SEND_PRESSURE] type=peak_update seq=25 len=256 min=3 max=2262
+[94m[FIT][0m depth = -25.887 + 0.000461 × press | RMSE=3.464, MAE=2.842
+[92m[PEAK] #26 depth=56.14[0m
+[PEAK #26] idx= 1205 val=158318 t=1767151834728 interval=713ms bpm=84.2
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=158318, t=1767151834728)
+[DEBUG][ALIGN] matched dt=-47.0ms press=158318
+[DEBUG][SEND_PRESSURE] type=peak_update seq=26 len=256 min=10 max=2402
+[94m[FIT][0m depth = -17.568 + 0.000413 × press | RMSE=3.765, MAE=3.080
+[PEAK #27] idx= 1239 val=159236 t=1767151835441 interval=713ms bpm=84.2
+[92m[PEAK] #27 depth=53.54[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=159236, t=1767151835441)
+[DEBUG][ALIGN] matched dt=-100.0ms press=159236
+[DEBUG][SEND_PRESSURE] type=peak_update seq=27 len=256 min=11 max=2282
+[94m[FIT][0m depth = 0.077 + 0.000308 × press | RMSE=3.517, MAE=2.822
+[92m[PEAK] #28 depth=54.52[0m
+[PEAK #28] idx= 1265 val=157503 t=1767151836193 interval=752ms bpm=79.8
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=157503, t=1767151836193)
+[DEBUG][ALIGN] matched dt=-102.0ms press=157503
+[DEBUG][SEND_PRESSURE] type=peak_update seq=28 len=256 min=1 max=1981
+[94m[FIT][0m depth = 18.461 + 0.000198 × press | RMSE=3.099, MAE=2.504
+[PEAK #29] idx= 1294 val=155761 t=1767151836887 interval=694ms bpm=86.5
+[92m[PEAK] #29 depth=55.49[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=155761, t=1767151836887)
+[DEBUG][ALIGN] matched dt=-188.0ms press=155761
+[DEBUG][SEND_PRESSURE] type=peak_update seq=29 len=256 min=1 max=2193
+[94m[FIT][0m depth = 39.507 + 0.000072 × press | RMSE=3.041, MAE=2.377
+[PEAK #30] idx= 1323 val=156613 t=1767151837579 interval=692ms bpm=86.7
+[92m[PEAK] #30 depth=55.48[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=156613, t=1767151837579)
+[DEBUG][ALIGN] matched dt=-148.0ms press=156613
+[DEBUG][SEND_PRESSURE] type=peak_update seq=30 len=256 min=4 max=2363
+[94m[FIT][0m depth = 57.366 + -0.000035 × press | RMSE=2.433, MAE=2.001
+[PEAK #31] idx= 1351 val=156811 t=1767151838253 interval=674ms bpm=89.0
+[92m[PEAK] #31 depth=54.57[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=156811, t=1767151838253)
+[DEBUG][ALIGN] matched dt=-132.0ms press=156811
+[DEBUG][SEND_PRESSURE] type=peak_update seq=31 len=256 min=1 max=1908
+[94m[FIT][0m depth = 69.266 + -0.000105 × press | RMSE=1.897, MAE=1.647
+[PEAK #32] idx= 1378 val=158463 t=1767151838946 interval=693ms bpm=86.6
+[92m[PEAK] #32 depth=55.84[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=158463, t=1767151838946)
+[DEBUG][ALIGN] matched dt=-125.0ms press=158463
+[DEBUG][SEND_PRESSURE] type=peak_update seq=32 len=256 min=0 max=2216
+[94m[FIT][0m depth = 73.177 + -0.000126 × press | RMSE=1.844, MAE=1.569
+[PEAK #33] idx= 1408 val=152987 t=1767151839659 interval=713ms bpm=84.2
+[92m[PEAK] #33 depth=54.48[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=152987, t=1767151839659)
+[DEBUG][ALIGN] matched dt=-127.0ms press=152987
+[DEBUG][SEND_PRESSURE] type=peak_update seq=33 len=256 min=0 max=2210
+[94m[FIT][0m depth = 75.081 + -0.000136 × press | RMSE=1.571, MAE=1.312
+[PEAK #34] idx= 1443 val=155840 t=1767151840352 interval=693ms bpm=86.6
+[92m[PEAK] #34 depth=52.60[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=155840, t=1767151840352)
+[DEBUG][ALIGN] matched dt=-166.0ms press=155840
+[DEBUG][SEND_PRESSURE] type=peak_update seq=34 len=256 min=11 max=2428
+[94m[FIT][0m depth = 74.893 + -0.000133 × press | RMSE=1.589, MAE=1.360
+[PEAK #35] idx= 1473 val=151159 t=1767151841104 interval=752ms bpm=79.8
+[92m[PEAK] #35 depth=53.85[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=151159, t=1767151841104)
+[DEBUG][ALIGN] matched dt=-120.0ms press=151159
+[DEBUG][SEND_PRESSURE] type=peak_update seq=35 len=256 min=16 max=2362
+[94m[FIT][0m depth = 73.795 + -0.000126 × press | RMSE=1.589, MAE=1.366
+[PEAK #36] idx= 1505 val=155634 t=1767151841777 interval=673ms bpm=89.2
+[92m[PEAK] #36 depth=52.81[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=155634, t=1767151841777)
+[DEBUG][ALIGN] matched dt=-113.0ms press=155634
+[DEBUG][SEND_PRESSURE] type=peak_update seq=36 len=256 min=1 max=2309
+[94m[FIT][0m depth = 73.754 + -0.000125 × press | RMSE=1.579, MAE=1.356
+[PEAK #37] idx= 1536 val=155081 t=1767151842470 interval=693ms bpm=86.6
+[92m[PEAK] #37 depth=57.36[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=155081, t=1767151842470)
+[DEBUG][ALIGN] matched dt=-155.0ms press=155081
+[DEBUG][SEND_PRESSURE] type=peak_update seq=37 len=256 min=5 max=2241
+[94m[FIT][0m depth = 76.420 + -0.000142 × press | RMSE=1.671, MAE=1.434
+[92m[PEAK] #38 depth=39.89[0m
+[PEAK #38] idx= 1568 val=160422 t=1767151843183 interval=713ms bpm=84.2
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=160422, t=1767151843183)
+[DEBUG][ALIGN] matched dt=-54.0ms press=160422
+[DEBUG][SEND_PRESSURE] type=peak_update seq=38 len=256 min=2 max=2427
+[94m[FIT][0m depth = 83.386 + -0.000188 × press | RMSE=3.356, MAE=2.183
+[92m[PEAK] #39 depth=58.23[0m
+[PEAK #39] idx= 1593 val=159190 t=1767151843876 interval=693ms bpm=86.6
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=159190, t=1767151843876)
+[DEBUG][ALIGN] matched dt=-113.0ms press=159190
+[DEBUG][SEND_PRESSURE] type=peak_update seq=39 len=256 min=0 max=2026
+[94m[FIT][0m depth = 90.825 + -0.000235 × press | RMSE=3.529, MAE=2.339
+[PEAK #40] idx= 1618 val=156736 t=1767151844569 interval=693ms bpm=86.6
+[92m[PEAK] #40 depth=55.93[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=156736, t=1767151844569)
+[DEBUG][ALIGN] matched dt=-157.0ms press=156736
+[DEBUG][SEND_PRESSURE] type=peak_update seq=40 len=256 min=0 max=2274
+[94m[FIT][0m depth = 98.366 + -0.000283 × press | RMSE=3.532, MAE=2.317
+[PEAK #41] idx= 1653 val=156934 t=1767151845302 interval=733ms bpm=81.9
+[92m[PEAK] #41 depth=55.20[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=156934, t=1767151845302)
+[DEBUG][ALIGN] matched dt=-118.0ms press=156934
+[DEBUG][SEND_PRESSURE] type=peak_update seq=41 len=256 min=5 max=2402
+[94m[FIT][0m depth = 104.313 + -0.000321 × press | RMSE=3.528, MAE=2.250
+[PEAK #42] idx= 1688 val=157252 t=1767151845995 interval=693ms bpm=86.6
+[92m[PEAK] #42 depth=57.73[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=157252, t=1767151845995)
+[DEBUG][ALIGN] matched dt=-124.0ms press=157252
+[DEBUG][SEND_PRESSURE] type=peak_update seq=42 len=256 min=0 max=2272
+[94m[FIT][0m depth = 106.152 + -0.000333 × press | RMSE=3.594, MAE=2.242
+[PEAK #43] idx= 1715 val=155428 t=1767151846688 interval=693ms bpm=86.6
+[92m[PEAK] #43 depth=56.81[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=155428, t=1767151846688)
+[DEBUG][ALIGN] matched dt=-191.0ms press=155428
+[DEBUG][SEND_PRESSURE] type=peak_update seq=43 len=256 min=4 max=2375
+[94m[FIT][0m depth = 104.457 + -0.000321 × press | RMSE=3.621, MAE=2.295
+[92m[PEAK] #44 depth=53.70[0m
+[PEAK #44] idx= 1743 val=151008 t=1767151847401 interval=713ms bpm=84.2
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=151008, t=1767151847401)
+[DEBUG][ALIGN] matched dt=-133.0ms press=151008
+[DEBUG][SEND_PRESSURE] type=peak_update seq=44 len=256 min=7 max=1176
+[94m[FIT][0m depth = 103.601 + -0.000315 × press | RMSE=3.592, MAE=2.381
+[PEAK #45] idx= 1770 val=154219 t=1767151848054 interval=653ms bpm=91.9
+[92m[PEAK] #45 depth=50.85[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=154219, t=1767151848054)
+[DEBUG][ALIGN] matched dt=-125.0ms press=154219
+[DEBUG][SEND_PRESSURE] type=peak_update seq=45 len=256 min=1 max=2327
+[94m[FIT][0m depth = 100.242 + -0.000293 × press | RMSE=3.694, MAE=2.476
+[92m[PEAK] #46 depth=55.09[0m
+[PEAK #46] idx= 1802 val=153230 t=1767151848767 interval=713ms bpm=84.2
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=153230, t=1767151848767)
+[DEBUG][ALIGN] matched dt=-121.0ms press=153230
+[DEBUG][SEND_PRESSURE] type=peak_update seq=46 len=256 min=9 max=1433
+[94m[FIT][0m depth = 99.578 + -0.000289 × press | RMSE=3.650, MAE=2.444
+[PEAK #47] idx= 1835 val=154021 t=1767151849460 interval=693ms bpm=86.6
+[92m[PEAK] #47 depth=55.57[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=154021, t=1767151849460)
+[DEBUG][ALIGN] matched dt=-221.0ms press=154021
+[DEBUG][SEND_PRESSURE] type=peak_update seq=47 len=256 min=6 max=2314
+[94m[FIT][0m depth = 101.333 + -0.000301 × press | RMSE=3.653, MAE=2.481
+[PEAK #48] idx= 1866 val=155296 t=1767151850153 interval=693ms bpm=86.6
+[92m[PEAK] #48 depth=55.64[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=155296, t=1767151850153)
+[DEBUG][ALIGN] matched dt=-128.0ms press=155296
+[DEBUG][SEND_PRESSURE] type=peak_update seq=48 len=256 min=2 max=2324
+[94m[FIT][0m depth = 103.278 + -0.000314 × press | RMSE=3.658, MAE=2.515
+[92m[PEAK] #49 depth=55.26[0m
+[PEAK #49] idx= 1895 val=156147 t=1767151850888 interval=735ms bpm=81.6
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=156147, t=1767151850888)
+[DEBUG][ALIGN] matched dt=-105.0ms press=156147
+[DEBUG][SEND_PRESSURE] type=peak_update seq=49 len=256 min=3 max=1647
+[94m[FIT][0m depth = 103.518 + -0.000316 × press | RMSE=3.656, MAE=2.507
+[PEAK #50] idx= 1928 val=164577 t=1767151851578 interval=690ms bpm=87.0
+[92m[PEAK] #50 depth=62.25[0m
+[DEBUG][PRESSURE_PEAK] count=1 last=(press=164577, t=1767151851578)
+[DEBUG][ALIGN] matched dt=-171.0ms press=164577
+[DEBUG][SEND_PRESSURE] type=peak_update seq=50 len=256 min=2 max=2383
+[94m[FIT][0m depth = 90.693 + -0.000233 × press | RMSE=4.091, MAE=2.342
+[35m[OCCL_START] seq=1[0m
+[35m[OCCL_END] seq=1[0m
+[35m[OCCL_START] seq=2[0m
+[35m[OCCL_END] seq=2[0m
+[92m[PEAK] #51 depth=27.63[0m
+[DEBUG][ALIGN] no pressure peak match vis_time=1767151853598.0 buffer_size=0
+[WARN] no matched pressure peak
+[35m[OCCL_START] seq=3[0m

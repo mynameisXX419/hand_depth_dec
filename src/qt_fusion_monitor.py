@@ -127,6 +127,9 @@ class FusionMonitor(QWidget):
         elif t == "peak_update":
             if "press" in msg:
                 self.lbl_press.setText(f"{msg['press']:.0f}")
+            if "bpm" in msg and msg["bpm"] is not None:
+                self.lbl_bpm.setText(f"{msg['bpm']:.1f}")
+
 
         elif t.startswith("occlusion"):
             if t in ("occlusion", "occlusion_lost"):
