@@ -125,7 +125,7 @@ n_c /= np.linalg.norm(n_c)
 cos_tilt = abs(n_c[2])
 
 def pixel_to_mm(dy_px):
-    return (dy_px * Z0_MM / FY) * cos_tilt
+    return (dy_px * Z0_MM / FY) #* cos_tilt
 
 # =========================================================
 # Init
@@ -319,7 +319,7 @@ with mp_hands.Hands(False, MAX_HANDS, MODEL_COMPLEXITY, 0.6, 0.6) as hands:
                 d2 = sig_hist[2] - sig_hist[1]
                 is_peak = (d1 > 0 and d2 <= 0)
                 peak_candidate = sig_hist[1]
-                peak_amp = peak_candidate - last_valley
+                peak_amp = peak_candidate #- last_valley
 
                 if (armed and is_peak and
                     PEAK_MIN_MM < peak_amp < PEAK_MAX_MM and

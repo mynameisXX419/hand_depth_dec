@@ -172,11 +172,11 @@ if __name__ == "__main__":
     time.sleep(0.5)
 
     # 1️⃣ Python Qt UI（融合监控）
-    start([PYTHON, "qt_fusion_monitor.py"], "qt_ui")
+    start([PYTHON, "qt_fusion_monitor_1.py"], "qt_ui")
     time.sleep(0.5)
 
     # 2️⃣ Fusion / Listener（关键：pressure 数据保存）
-    start([PYTHON, "listener_fusion_4.py"], "fusion")
+    start([PYTHON, "listener_fusion_5.py"], "fusion")
     time.sleep(0.5)
 
     # 3️⃣ Vision
@@ -188,6 +188,6 @@ if __name__ == "__main__":
 
     print("\n[INFO] System running. Press Ctrl+C to exit.\n")
 
-    # 主线程阻塞
+    # 主线程阻塞wyh
     while True:
         time.sleep(1)

@@ -1,38 +1,37 @@
 #!/usr/bin/env python3
 # =========================================================
 # Visual CPR Compression Depth
-# Engineering version with Fake Occlusion (SAFE)
+# Save hand_depth_plane_avg.csv (engineering version)
 # =========================================================
 
 import cv2
-import mediapipe as mp  # Ensure mediapipe is imported properly
+import mediapipe as mp
 import numpy as np
 from collections import deque
 import time, json, socket, csv, os
 from camera_calib_loader import load_camera_params
 from typing import List
 
-# ======================= Basic config =======================
+# =========================================================
+# Basic config
+# =========================================================
 WINDOW_NAME = "Hand Depth Monitor"
 
 CALIB_FILE     = "camera_gp23.yml"
 EXTRINSIC_FILE = "extrinsic_result.yml"
-CAM_ID         = 0
+CAM_ID         = 2
 
 SOCKET_PATH = "/tmp/press_event.sock"
 LOG_PATH    = "./hand_depth_plane_avg.csv"
 
 MAX_HANDS = 2
-MODEL_COMPLEXITY = 1
+MODEL_COMPLEXITY = 0
 HAND_BACK_KEYS = [0, 5, 9, 13, 17]
 ZERO_FRAMES = 100
 
-# ======================= Fake occlusion =====================
-FAKE_OCCLUSION_ENABLE   = True
-FAKE_OCCLUSION_AFTER_S  = 25.0
-FAKE_OCCLUSION_LEN_S    = 5.0
-
-# ======================= Peak params ========================
+# =========================================================
+# Peak detection parameters (unchanged)
+# =========================================================
 PEAK_MIN_MM     = 8.0
 PEAK_MAX_MM     = 70.0
 PROM_MM         = 3.5
@@ -40,31 +39,42 @@ MIN_INTERVAL_MS = 220
 AUTO_REARM_MS   = 400
 ARM_THRESH_MM   = 10.0
 
-# ======================= Vision states ======================
-VISION_OK   = "ok"
-VISION_SOFT = "soft"
-VISION_HARD = "hard"
+# =========================================================
+# Vision state thresholds
+# =========================================================
+CONF_SOFT_TH       = 0.35
+NO_HAND_TH         = 3
+INVALID_FRAMES_TH  = 3
+STATIC_DEPTH_MIN   = 5.0
+STD_STATIC_WIN     = 10
+STD_STATIC_TH      = 1.0
 
-CONF_SOFT_TH = 0.35
-NO_HAND_TH   = 3
+DEPTH_VALID_MIN_MM = -10.0
+DEPTH_VALID_MAX_MM = 70.0
 
-# ======================= Socket =============================
-def wait_socket_ready(path):
-    print(f"[INFO] waiting for socket ready: {path}")
-    while not os.path.exists(path):
-        time.sleep(0.05)
-    print(f"[INFO] socket ready")
+# =========================================================
+# Vision states
+# =========================================================
+VISION_OK      = "ok"
+VISION_SOFT    = "soft"
+VISION_HARD    = "hard"
+VISION_INVALID = "invalid"
 
+# =========================================================
+# Socket helper (unchanged)
+# =========================================================
 def send_event(event_type, **kwargs):
     evt = {"type": event_type, **kwargs}
     try:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         s.sendto(json.dumps(evt).encode(), SOCKET_PATH)
         s.close()
-    except Exception as e:
-        print("[WARN] send_event failed:", e)
+    except Exception:
+        pass
 
-# ======================= Filters =============================
+# =========================================================
+# Filters (unchanged)
+# =========================================================
 class EMA:
     def __init__(self, alpha=0.6):
         self.a = alpha
@@ -96,7 +106,9 @@ class OneDimKalman:
         self.P = (np.eye(2) - K @ self.H) @ self.P
         return float(self.x[0, 0])
 
-# ======================= Camera calib =======================
+# =========================================================
+# Camera & calibration
+# =========================================================
 params = load_camera_params(CALIB_FILE)
 K = params["K"]
 FY = float(K[1, 1])
@@ -107,62 +119,96 @@ T_oc = fs.getNode("translation_vector").mat()
 fs.release()
 
 Z0_MM = float(T_oc[2, 0] * 1000.0)
-n_c = (R_oc @ np.array([[0.0],[0.0],[1.0]])).reshape(3)
+
+n_c = (R_oc @ np.array([[0.0], [0.0], [1.0]])).reshape(3)
 n_c /= np.linalg.norm(n_c)
 cos_tilt = abs(n_c[2])
 
 def pixel_to_mm(dy_px):
-    return (dy_px * Z0_MM / FY) * cos_tilt
+    return (dy_px * Z0_MM / FY) #* cos_tilt
 
-# ======================= Init ================================
+# =========================================================
+# Init
+# =========================================================
 ema = EMA()
 kf  = OneDimKalman()
 
 zero_ref_y = None
 zero_buf = deque(maxlen=ZERO_FRAMES)
 
-sig_hist = deque(maxlen=3)
+sig_hist   = deque(maxlen=3)
+depth_hist = deque(maxlen=60)
+
 armed = True
 last_valley = np.inf
 last_peak_ms = 0
 peak_idx = 0
 
+# =========================================================
+# Artificial occlusion injection (EXPERIMENT CONTROL)
+# =========================================================
+INJECT_OCCLUSION_AFTER_PEAK = 20   # 第 N 次按压后触发
+INJECT_OCCLUSION_SEC        = 4.0  # 遮挡持续时间（秒）
+
+occlusion_injected = False         # 只触发一次
+
+
 vision_state = VISION_OK
 conf_ema = 0.0
 no_hand_frames = 0
+invalid_frames = 0
 
 sig = 0.0
 frame_idx = 0
 
-start_ts_ms = None
-fake_occ_active = False
-fake_occ_last = False
+# ===== ZERO strict control =====
+ZERO_STD_TH = 1.0
+last_zero_std = None
+zero_fail_count = 0
 
-# ======================= CSV ================================
+# =========================================================
+# CSV init
+# =========================================================
+os.makedirs(os.path.dirname(LOG_PATH) or ".", exist_ok=True)
 logf = open(LOG_PATH, "w", newline="")
 writer = csv.writer(logf)
+
+# ===== CSV HEADER (exactly as you required) =====
 writer.writerow([
-    "frame_idx", "timestamp_ms",
-    "depth_raw_mm", "depth_ema_mm", "depth_kf_mm",
-    "depth_corr_mm", "sig_mm",
-    "conf", "conf_ema", "vision_state",
-    "has_hand", "has_main_hand",
-    "velocity_mm_s", "motion_mm",
-    "gain", "offset_mm", "cos_tilt"
+    "frame_idx",
+    "timestamp_ms",
+    "depth_raw_mm",
+    "depth_ema_mm",
+    "depth_kf_mm",
+    "depth_corr_mm",
+    "sig_mm",
+    "conf",
+    "conf_ema",
+    "vision_state",
+    "has_hand",
+    "has_main_hand",
+    "velocity_mm_s",
+    "motion_mm",
+    "gain",
+    "offset_mm",
+    "cos_tilt"
 ])
 
-# ======================= Camera =============================
+print(f"[INFO] Logging to {LOG_PATH}")
+
+# =========================================================
+# Camera
+# =========================================================
 cap = cv2.VideoCapture(CAM_ID)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
 
-# Initialize mp_hands properly
 mp_hands = mp.solutions.hands
 mp_draw  = mp.solutions.drawing_utils
 
-wait_socket_ready(SOCKET_PATH)
-
-# ======================= Main loop ==========================
+# =========================================================
+# Main loop
+# =========================================================
 with mp_hands.Hands(False, MAX_HANDS, MODEL_COMPLEXITY, 0.6, 0.6) as hands:
     while True:
         ok, frame = cap.read()
@@ -170,109 +216,105 @@ with mp_hands.Hands(False, MAX_HANDS, MODEL_COMPLEXITY, 0.6, 0.6) as hands:
             break
 
         timestamp_ms = int(time.time() * 1000)
-        if start_ts_ms is None:
-            start_ts_ms = timestamp_ms
-
-        elapsed_s = (timestamp_ms - start_ts_ms) / 1000.0
-        fake_occ_active = (
-            FAKE_OCCLUSION_ENABLE and
-            FAKE_OCCLUSION_AFTER_S <= elapsed_s <
-            FAKE_OCCLUSION_AFTER_S + FAKE_OCCLUSION_LEN_S
-        )
-
-        if fake_occ_active and not fake_occ_last:
-            send_event("occlusion", vision_state=VISION_HARD)
-        if not fake_occ_active and fake_occ_last:
-            send_event("occlusion_clear")
-        fake_occ_last = fake_occ_active
-
         frame = cv2.flip(frame, 1)
-        h, _ = frame.shape[:2]
+        h, w = frame.shape[:2]
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        res = hands.process(rgb)
 
         raw_plane_y = None
         conf = 0.0
-        has_any_hand = False
+        has_any_hand = bool(res.multi_hand_landmarks)
         has_main_hand = False
 
-        if not fake_occ_active:
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            res = hands.process(rgb)
-            has_any_hand = bool(res.multi_hand_landmarks)
-            if has_any_hand:
-                lm = res.multi_hand_landmarks[0]
-                raw_plane_y = np.mean([lm.landmark[k].y * h for k in HAND_BACK_KEYS])
+        if has_any_hand:
+            lm = res.multi_hand_landmarks[0]
+            y_list = [lm.landmark[k].y * h for k in HAND_BACK_KEYS]
+            raw_plane_y = float(np.mean(y_list))
+            if res.multi_handedness:
                 conf = res.multi_handedness[0].classification[0].score
-                has_main_hand = True
-                mp_draw.draw_landmarks(frame, lm, mp_hands.HAND_CONNECTIONS)
+            has_main_hand = True
+            mp_draw.draw_landmarks(frame, lm, mp_hands.HAND_CONNECTIONS)
 
-        # ---------- ZERO ----------
+        # =====================================================
+        # ZERO STAGE (strict)
+        # =====================================================
         if zero_ref_y is None:
             if raw_plane_y is not None:
                 zero_buf.append(raw_plane_y)
-                if len(zero_buf) == ZERO_FRAMES and np.std(zero_buf) < 1.0:
-                    zero_ref_y = float(np.mean(zero_buf))
-            cv2.putText(frame, "STATE: ZERO CALIBRATION", (20,40),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,255), 2)
+                if len(zero_buf) == ZERO_FRAMES:
+                    last_zero_std = float(np.std(zero_buf))
+                    if last_zero_std < ZERO_STD_TH:
+                        zero_ref_y = float(np.mean(zero_buf))
+                    else:
+                        zero_fail_count += 1
+                        zero_buf.clear()
+
+            cv2.putText(frame, "STATE: ZERO CALIBRATION",
+                        (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,255), 2)
+            cv2.putText(frame, f"Collected: {len(zero_buf)}/{ZERO_FRAMES}",
+                        (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,255), 2)
+            if last_zero_std is not None:
+                cv2.putText(frame, f"std={last_zero_std:.3f}",
+                            (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,0), 2)
+
             cv2.imshow(WINDOW_NAME, frame)
             if cv2.waitKey(1) == 27:
                 break
             continue
 
-        # ---------- DEPTH ----------
+        # =====================================================
+        # DEPTH STAGE
+        # =====================================================
+        depth_invalid = False
+        static_flag = False
+
         if has_main_hand:
             dy_px = raw_plane_y - zero_ref_y
             depth_raw = pixel_to_mm(dy_px)
             depth_ema = ema.update(depth_raw)
             depth_kf  = kf.update(depth_ema)
+
             sig = depth_kf
             sig_hist.append(sig)
+            depth_hist.append(sig)
+
+            if not (DEPTH_VALID_MIN_MM <= depth_kf <= DEPTH_VALID_MAX_MM):
+                invalid_frames += 1
+                depth_invalid = True
+            else:
+                invalid_frames = 0
+
+            if len(depth_hist) >= STD_STATIC_WIN:
+                recent = np.array(depth_hist)[-STD_STATIC_WIN:]
+                if np.std(recent) < STD_STATIC_TH and np.mean(recent) > STATIC_DEPTH_MIN:
+                    static_flag = True
+
             conf_ema = 0.6 * conf + 0.4 * conf_ema
             no_hand_frames = 0
         else:
             no_hand_frames += 1
             conf_ema *= 0.4
-            depth_raw = 0.0
-            depth_ema = 0.0
-            depth_kf = 0.0
-            sig = 0.0
 
-        # Write the current data to CSV, including the default values when no hand is detected
-        writer.writerow([
-            frame_idx,
-            timestamp_ms,
-            depth_raw if has_main_hand else 0.0,
-            depth_ema if has_main_hand else 0.0,
-            depth_kf if has_main_hand else 0.0,
-            depth_kf if has_main_hand else 0.0,  # depth_corr_mm
-            sig,
-            float(conf),
-            float(conf_ema),
-            vision_state,
-            bool(has_any_hand),
-            bool(has_main_hand),
-            0.0,  # placeholder for velocity (to be calculated if needed)
-            0.0,  # placeholder for motion (to be calculated if needed)
-            1.0,  # placeholder for gain
-            0.0,  # placeholder for offset_mm
-            cos_tilt
-        ])
-
-        # ---------- FSM ----------
         prev_state = vision_state
+
         if no_hand_frames >= NO_HAND_TH:
             vision_state = VISION_HARD
-        elif conf_ema < CONF_SOFT_TH:
+        elif depth_invalid and invalid_frames >= INVALID_FRAMES_TH:
+            vision_state = VISION_INVALID
+        elif conf_ema < CONF_SOFT_TH or static_flag:
             vision_state = VISION_SOFT
         else:
             vision_state = VISION_OK
 
-        if vision_state != prev_state and not fake_occ_active:
-            if vision_state == VISION_HARD:
+        if vision_state != prev_state:
+            if vision_state in (VISION_HARD, VISION_INVALID):
                 send_event("occlusion", vision_state=vision_state)
             elif vision_state == VISION_OK:
                 send_event("occlusion_clear")
 
-        # ---------- PEAK ----------
+        # =====================================================
+        # Peak detection (unchanged)
+        # =====================================================
         if has_main_hand:
             now_ms = timestamp_ms
             if sig <= ARM_THRESH_MM or (not armed and now_ms - last_peak_ms > AUTO_REARM_MS):
@@ -284,29 +326,118 @@ with mp_hands.Hands(False, MAX_HANDS, MODEL_COMPLEXITY, 0.6, 0.6) as hands:
             if len(sig_hist) == 3:
                 d1 = sig_hist[1] - sig_hist[0]
                 d2 = sig_hist[2] - sig_hist[1]
-                if (armed and d1 > 0 and d2 <= 0):
-                    peak = sig_hist[1]
-                    amp = peak - last_valley
-                    if PEAK_MIN_MM < amp < PEAK_MAX_MM and amp >= PROM_MM and now_ms - last_peak_ms >= MIN_INTERVAL_MS:
-                        peak_idx += 1
-                        last_peak_ms = now_ms
-                        armed = False
-                        send_event("peak", idx=peak_idx,
-                                   depth=round(amp,2),
-                                   vis_time_ms=timestamp_ms)
+                is_peak = (d1 > 0 and d2 <= 0)
+                peak_candidate = sig_hist[1]
+                peak_amp = peak_candidate #- last_valley
 
-        # ---------- Overlay ----------
-        cv2.putText(frame, f"Depth={sig:.1f} mm", (20,40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
-        cv2.putText(frame, f"state={vision_state} conf_ema={conf_ema:.2f}",
-                    (20,80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
+                if (armed and is_peak and
+                    PEAK_MIN_MM < peak_amp < PEAK_MAX_MM and
+                    peak_amp >= PROM_MM and
+                    now_ms - last_peak_ms >= MIN_INTERVAL_MS):
+
+                    peak_idx += 1
+                    last_peak_ms = now_ms
+                    armed = False
+                    last_valley = np.inf
+
+                    send_event("peak",
+                               idx=peak_idx,
+                               depth=round(peak_amp, 2),
+                               vis_time_ms=timestamp_ms)
+                    # =====================================================
+                    # Artificial occlusion injection (FORCED HARD)
+                    # =====================================================
+                    if (peak_idx == INJECT_OCCLUSION_AFTER_PEAK and
+                        not occlusion_injected):
+
+                        print(f"[INFO] Injecting artificial occlusion for "
+                            f"{INJECT_OCCLUSION_SEC:.1f}s at peak {peak_idx}")
+
+                        occlusion_injected = True
+
+                        # 1️⃣ 强制进入 HARD
+                        vision_state = VISION_HARD
+                        no_hand_frames = NO_HAND_TH
+                        invalid_frames = 0
+
+                        send_event(
+                            "occlusion",
+                            vision_state=VISION_HARD,
+                            reason="injected",
+                            peak_idx=peak_idx,
+                            duration_s=INJECT_OCCLUSION_SEC
+                        )
+
+                        # 2️⃣ 断开摄像头
+                        cap.release()
+
+                        # 3️⃣ 阻塞等待
+                        t0 = time.time()
+                        while time.time() - t0 < INJECT_OCCLUSION_SEC:
+                            time.sleep(0.05)
+
+                        # 4️⃣ 重新打开摄像头
+                        cap = cv2.VideoCapture(CAM_ID)
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+                        time.sleep(0.2)
+
+                        # 5️⃣ 复位 FSM（非常关键）
+                        vision_state = VISION_OK
+                        no_hand_frames = 0
+                        invalid_frames = 0
+                        conf_ema = 0.0
+                        sig_hist.clear()
+                        depth_hist.clear()
+
+                        # 6️⃣ 通知遮挡结束
+                        send_event("occlusion_clear")
+                    
+                    
+
+        # =====================================================
+        # CSV WRITE (THIS IS WHAT YOU ASKED FOR)
+        # =====================================================
+        velocity = float(kf.x[1, 0]) if kf.inited else 0.0
+        motion   = abs(depth_raw - depth_ema) if has_main_hand else 0.0
+
+        writer.writerow([
+            frame_idx,
+            timestamp_ms,
+            depth_raw if has_main_hand else 0.0,
+            depth_ema if has_main_hand else 0.0,
+            depth_kf  if has_main_hand else 0.0,
+            depth_kf  if has_main_hand else 0.0,   # depth_corr_mm
+            sig,
+            float(conf),
+            float(conf_ema),
+            vision_state,
+            bool(has_any_hand),
+            bool(has_main_hand),
+            velocity,
+            motion,
+            1.0,          # gain (placeholder)
+            0.0,          # offset_mm
+            cos_tilt
+        ])
+        frame_idx += 1
+
+        # =====================================================
+        # Overlay
+        # =====================================================
+        cv2.putText(frame, f"Depth={sig:.2f}mm",
+                    (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+        cv2.putText(frame, f"vision_state={vision_state} conf_ema={conf_ema:.2f}",
+                    (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
 
         cv2.imshow(WINDOW_NAME, frame)
         if cv2.waitKey(1) == 27:
             break
 
-# ======================= Cleanup =============================
+# =========================================================
+# Cleanup
+# =========================================================
 logf.close()
 cap.release()
 cv2.destroyAllWindows()
-print("[INFO] exit")
+print(f"[INFO] Data saved to {LOG_PATH}")

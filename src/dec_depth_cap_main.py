@@ -6,7 +6,7 @@ from camera_calib_loader import load_camera_params
 
 # ================== 参数设置 ==================
 CALIB_FILE = "camera_gp23.yml"      # 张正友法内参文件（Matlab导出的）
-CAM_ID = 0
+CAM_ID = 2
 NUM_FRAMES = 40
 SAVE_PATH = "extrinsic_result.yml"
 
